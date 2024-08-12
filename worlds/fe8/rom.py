@@ -118,12 +118,12 @@ def write_tokens(world: "FE8World", patch: FE8ProcedurePatch):
     patch.write_file("config.json", json.dumps(config_dict).encode("UTF-8"))
 
     # Player name
-    # CR cam: Raise an error if the name is too long
-    patch.write_token(
-        APTokenTypes.WRITE,
-        SLOT_NAME_OFFS,
-        multiworld.player_name[player].encode("utf-8")[:63],
-    )
+    player_name = multiworld.player_name[player]
+    name_bytes = player_name.encode("utf-8")
+    if len(name_bytes) > 63:
+        raise Exception(f"FE8: Player name {player_name} is too long (max 63 bytes)")
+
+    patch.write_token(APTokenTypes.WRITE, SLOT_NAME_OFFS, name_bytes)
 
     for location in multiworld.get_locations(player):
         assert isinstance(location, FE8Location)
