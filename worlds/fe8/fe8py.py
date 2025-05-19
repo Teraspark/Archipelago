@@ -487,9 +487,21 @@ class FE8Randomizer:
         if not choices:
             import json
 
-            logging.error("LOGIC ERROR: no viable weapons")
-            logging.error(f"  job: {job.name}")
-            logging.error(f"  logic: {json.dumps(logic, indent=2)}")
+            logging.warning("LOGIC ERROR: no viable weapons, defaulting to E rank")
+            logging.warning(f"  job: {job.name}")
+            logging.warning(f"  logic: {json.dumps(logic, indent=2)}")
+
+            choices = [
+                weap
+                for weap in self.weapons_by_rank[WeaponRank.E]
+                if weapon_usable(weap, job, dict())
+            ]
+
+            if not choices:
+                logging.warning(
+                    "LOGIC ERROR (2): still no viable weapons, defaulting to iron sword"
+                )
+                choices = [self.weapons_by_name["Iron Sword"]]
 
         return self.random.choice(choices).id
 
@@ -528,7 +540,12 @@ class FE8Randomizer:
         job_valid: Callable[[JobData], bool],
     ) -> JobData:
         new_job_pool = promoted_pool if job.is_promoted else unpromoted_pool
-        return self.random.choice([job for job in new_job_pool if job_valid(job)])
+        choices = [job for job in new_job_pool if job_valid(job)]
+        if not choices:
+            logging.warning("LOGIC ERROR: no valid jobs")
+            logging.warning(f"  original job: {job.name}")
+            return job
+        return self.random.choice(choices)
 
     def randomize_chapter_unit(self, data_offset: int, logic: dict[str, Any]) -> None:
         # We *could* read the full struct, but we only need a few individual
@@ -756,7 +773,9 @@ class FE8Randomizer:
                 pwr = 1 if job.is_promoted else 0
                 idx = weapon_tables[("Fang", pwr)]
                 row1 = (idx, 0, 0, 0, 0)
-                row1weights = ((25, 75, 0, 0, 0) if job.is_promoted else (75, 25, 0, 0, 0))
+                row1weights = (
+                    (25, 75, 0, 0, 0) if job.is_promoted else (75, 25, 0, 0, 0)
+                )
                 row1distrib = (13, 0, 0, 0, 0)
             elif "MonsterDark" in job.tags:
                 match job.name:
