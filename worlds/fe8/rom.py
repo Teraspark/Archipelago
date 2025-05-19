@@ -60,6 +60,9 @@ class FE8PatchExtension(APPatchExtension):
         if config["unbreakable_regalia"]:
             randomizer.apply_infinite_holy_weapons()
 
+        if config["normalize_genders"]:
+            randomizer.normalize_genders()
+
         return bytes(mut_rom)
 
 
@@ -112,6 +115,7 @@ def write_tokens(world: "FE8World", patch: FE8ProcedurePatch):
         "easier_5x": bool(options.easier_5x),
         "unbreakable_regalia": bool(options.unbreakable_regalia),
         "shuffle_skirmish_tables": bool(options.shuffle_skirmish_tables),
+        "normalize_genders": bool(options.normalize_genders),
         "seed": multiworld.seed,
         "player": player,
     }

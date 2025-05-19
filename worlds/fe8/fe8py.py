@@ -9,6 +9,9 @@ import logging
 from typing import Any, Union, Optional, Callable, Iterable, Tuple
 
 from .util import fetch_json, write_short_le, read_short_le, read_word_le
+
+# XXX: most python lsps can't handle `from .constants import *`, so we have to
+# specify these manually...
 from .constants import (
     ROM_BASE_ADDRESS,
     CHAPTER_UNIT_SIZE,
@@ -25,6 +28,7 @@ from .constants import (
     JOB_TABLE_BASE,
     JOB_SIZE,
     JOB_STATS_OFFSET,
+    JOB_CAPS_OFFSET,
     STATS_COUNT,
     EIRIKA,
     EIRIKA_LORD,
@@ -60,6 +64,7 @@ from .constants import (
     INTERNAL_RANDO_WEAPONS_ENTRY_SIZE,
     INTERNAL_RANDO_WEAPONS_MAX_CLASSES,
     INTERNAL_RANDO_WEAPON_TABLE_ROWS,
+    FEMALE_JOBS,
 )
 
 DEBUG = False
@@ -856,6 +861,21 @@ class FE8Randomizer:
             for terrain_type in IMPORTANT_TERRAIN_TYPES:
                 if self.rom[entry + terrain_type] == 255:
                     self.rom[entry + terrain_type] = MOVEMENT_COST_SENTINEL
+
+    def normalize_genders(self) -> None:
+        for fjob, mjob in FEMALE_JOBS:
+            fjob_entry = JOB_TABLE_BASE + fjob * JOB_SIZE
+            mjob_entry = JOB_TABLE_BASE + mjob * JOB_SIZE
+
+            fjob_stats_base = fjob_entry + JOB_STATS_OFFSET
+            mjob_stats_base = mjob_entry + JOB_STATS_OFFSET
+
+            fjob_caps_base = fjob_entry + JOB_CAPS_OFFSET
+            mjob_caps_base = mjob_entry + JOB_CAPS_OFFSET
+
+            for i in range(STATS_COUNT+1):
+                self.rom[fjob_stats_base + i] = self.rom[mjob_stats_base + i]
+                self.rom[fjob_caps_base + i] = self.rom[mjob_caps_base + i]
 
     def tweak_lords(self) -> None:
         for char, job, lock_mask in [

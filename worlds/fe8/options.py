@@ -161,6 +161,19 @@ class LockpickUsability(Choice):
     option_GlobalRoguePick = 2
 
 
+class NormalizeGenders(Toggle):
+    """
+    Adjust female classes to have identical base stats and caps to their male
+    counterparts, if one exists.
+
+    In most cases, this is a buff to those classes. However, some low-turn
+    strategies may rely on the fact that female mounted units have more Aid.
+    """
+
+    display_name = "Normalize gendered class stats"
+    default = 0
+
+
 # CR-someday cam: think about how this interacts with chapter select mode
 class Goal(Choice):
     """
@@ -199,6 +212,7 @@ class FE8Options(PerGameCommonOptions):
     ruins_enabled: EnableRuins
     shuffle_skirmish_tables: ShuffleSkirmishTables
     lockpick_usability: LockpickUsability
+    normalize_genders: NormalizeGenders
     goal: Goal
 
     # Convenience methods for options that imply each other
