@@ -96,11 +96,6 @@ class FE8World(World):
     location_name_to_id = {name: id + FE8_ID_PREFIX for name, id in locations}
     item_name_groups = {"holy weapons": set(HOLY_WEAPONS.keys())}
 
-    @classmethod
-    def stage_assert_generate(cls, multiworld: MultiWorld) -> None:
-        if not os.path.exists(cls.settings.rom_file):
-            raise FileNotFoundError(cls.settings.rom_file)
-
     def total_locations(self) -> int:
         tower_checks_enabled = self.options.tower_checks_enabled()
         ruins_checks_enabled = self.options.ruins_checks_enabled()
