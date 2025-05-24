@@ -185,6 +185,10 @@ class FE8World(World):
                     ),
                 )
 
+        # We shuffle here to ensure that level caps and weapon levels come before
+        # holy weapons in `other_weapons`.
+        self.random.shuffle(other_items)
+
         for hw in HOLY_WEAPONS:
             register(
                 hw,
@@ -206,7 +210,6 @@ class FE8World(World):
         for item in progression_items:
             self.multiworld.itempool.append(item)
 
-        self.random.shuffle(other_items)
         for _ in range(len(progression_items), total_locations):
             if other_items:
                 self.multiworld.itempool.append(other_items.pop())
