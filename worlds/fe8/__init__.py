@@ -343,7 +343,6 @@ class FE8World(World):
 
             self.multiworld.regions.append(campaign)
 
-        # TODO (cam): These regions don't make much sense.
         if self.options.tower_checks_enabled():
             tower = Region("Tower of Valni", self.player, self.multiworld)
             self.multiworld.regions.append(tower)
