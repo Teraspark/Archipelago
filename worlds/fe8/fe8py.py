@@ -423,19 +423,23 @@ class FE8Randomizer:
         for weap in self.weapons_by_id.values():
             self.weapons_by_rank[weap.rank].append(weap)
 
-        # Dark has no E-ranked weapons, so we add Flux
+        # Dark has no E-ranked weapons by default.
         self.weapons_by_rank[WeaponRank.E].append(self.weapons_by_name["Flux"])
 
-        # Let's do the same thing with dogs
+        # cam: Should we allow Lyon to become a monster?
+
         self.weapons_by_rank[WeaponRank.D].append(self.weapons_by_name["Fiery Fang"])
         self.weapons_by_rank[WeaponRank.C].append(self.weapons_by_name["Fiery Fang"])
         self.weapons_by_rank[WeaponRank.A].append(self.weapons_by_name["Hellfang"])
+        self.weapons_by_rank[WeaponRank.S].append(self.weapons_by_name["Hellfang"])
 
         self.weapons_by_rank[WeaponRank.A].append(self.weapons_by_name["Fetid Claw"])
+        self.weapons_by_rank[WeaponRank.S].append(self.weapons_by_name["Fetid Claw"])
 
         # CR-soon cam:
         # Darr: Dragon zombies experience the same problem. I've disabled them for now;
         # they only have one weapon and E-rank Wretched Air does not sound fun.
+        #
         # Cam: What we need to do is prevent units from randomizing into Dracozombies
         # unless they have an A rank weapon. There are a few easy ways to hack that
         # in, but I'm going to punt on it for now because that's a bunch of design
@@ -494,6 +498,7 @@ class FE8Randomizer:
 
             logging.warning("LOGIC ERROR: no viable weapons, defaulting to E rank")
             logging.warning(f"  job: {job.name}")
+            logging.warning(f"  rank: {weapon_attrs.rank}")
             logging.warning(f"  logic: {json.dumps(logic, indent=2)}")
 
             choices = [
@@ -873,7 +878,7 @@ class FE8Randomizer:
             fjob_caps_base = fjob_entry + JOB_CAPS_OFFSET
             mjob_caps_base = mjob_entry + JOB_CAPS_OFFSET
 
-            for i in range(STATS_COUNT+1):
+            for i in range(STATS_COUNT + 1):
                 self.rom[fjob_stats_base + i] = self.rom[mjob_stats_base + i]
                 self.rom[fjob_caps_base + i] = self.rom[mjob_caps_base + i]
 
