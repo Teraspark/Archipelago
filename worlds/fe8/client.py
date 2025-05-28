@@ -5,6 +5,7 @@ from typing import (
     TypeVar,
     Awaitable,
 )
+from enum import IntEnum
 
 from NetUtils import ClientStatus
 
@@ -15,11 +16,16 @@ from .connector_config import (
     FLAGS_ADDR,
     ARCHIPELAGO_RECEIVED_ITEM_ADDR,
     ARCHIPELAGO_NUM_RECEIVED_ITEMS_ADDR,
+    ARCHIPELAGO_DEATHLINK_IN,
+    ARCHIPELAGO_DEATHLINK_OUT,
+    ARCHIPELAGO_DEATHLINK_READY,
+    DEATH_LINK_KIND_OFFS,
     SLOT_NAME_ADDR,
 )
 from .constants import (
     FE8_NAME,
     FE8_ID_PREFIX,
+    ROM_BASE_ADDRESS,
     ROM_NAME_ADDR,
     PROC_SIZE,
     PROC_POOL_ADDR,
@@ -46,12 +52,31 @@ RUINS_CLEAR_FLAG = locations["Complete Lagdou Ruins 10"]
 
 T = TypeVar("T")
 
+
+class DeathLinkKind(IntEnum):
+    _ignore_ = ["_msgs"]
+
+    NONE = 0
+    ON_GAME_OVER = 1
+    ON_ANY_DEATH = 2
+
+    _msgs = [
+        "{} somehow sent a Death Link!",
+        "{}'s army was defeated!",
+        "{} suffered a casualty!",
+    ]
+
+    def message(self):
+        return DeathLinkKind._msgs[self]
+
+
 class FE8Client(BizHawkClient):
     game = FE8_NAME
     system = "GBA"
     patch_suffix = ".apfe8"
     local_checked_locations: Set[int]
     game_state_safe: bool = False
+    deathlink_kind: DeathLinkKind
     goal_flag: int
 
     def __init__(self):
@@ -64,15 +89,19 @@ class FE8Client(BizHawkClient):
 
         try:
             # logger.info("FE8 Client: validating")
-            rom_name_bytes = (
-                await bizhawk.read(ctx.bizhawk_ctx, [(ROM_NAME_ADDR, 16, "System Bus")])
-            )[0]
+            rom_name_bytes, deathlink_kind_bytes = await bizhawk.read(
+                ctx.bizhawk_ctx,
+                [
+                    (ROM_NAME_ADDR, 16, "System Bus"),
+                    (DEATH_LINK_KIND_OFFS + ROM_BASE_ADDRESS, 1, "System Bus"),
+                ],
+            )
             rom_name = bytes([byte for byte in rom_name_bytes if byte != 0]).decode(
                 "ascii"
             )
             # logger.info("FE8 Client: rom name is {rom_name}")
             if rom_name == "FIREEMBLEM2EBE8E":
-                logger.info(
+                logger.error(
                     "ERROR: You seem to be running an unpatched version of FE8. "
                     "Please generate a patch file and use it to create a patched ROM."
                 )
@@ -80,7 +109,7 @@ class FE8Client(BizHawkClient):
             if not rom_name.startswith("FE8AP"):
                 return False
             if rom_name != EXPECTED_ROM_NAME:
-                logger.info(
+                logger.error(
                     "ERROR: The patch file used to create this ROM is not compatible "
                     "with this client. Double check your client version against the "
                     "version used by the generator."
@@ -97,6 +126,9 @@ class FE8Client(BizHawkClient):
         ctx.items_handling = 1
         ctx.want_slot_data = True
         ctx.watcher_timeout = 0.125
+
+        self.deathlink_kind = DeathLinkKind(deathlink_kind_bytes[0])
+        await ctx.update_death_link(bool(self.deathlink_kind))
 
         return True
 
@@ -122,13 +154,26 @@ class FE8Client(BizHawkClient):
             )
         ]
 
-        if any(
-            proc in (E_PLAYERPHASE_PROC_ADDRESS,)
-            for proc in active_procs
-        ):
+        if any(proc in (E_PLAYERPHASE_PROC_ADDRESS,) for proc in active_procs):
             self.game_state_safe = True
         else:
             self.game_state_safe = False
+
+    async def on_deathlink(self, ctx: BizHawkClientContext):
+        await self.run_locked(ctx, self.handle_deathlink_in)
+
+    # requires: locked
+    async def handle_deathlink_in(self, ctx: BizHawkClientContext):
+        ready = (
+            await bizhawk.read(
+                ctx.bizhawk_ctx, [(ARCHIPELAGO_DEATHLINK_READY, 1, "System Bus")]
+            )
+        )[0][0]
+        if not ready:
+            return
+        await bizhawk.write(
+            ctx.bizhawk_ctx, [(ARCHIPELAGO_DEATHLINK_IN, bytes([1]), "System Bus")]
+        )
 
     async def set_auth(self, ctx: BizHawkClientContext) -> None:
         slot_name_bytes = (
@@ -195,11 +240,29 @@ class FE8Client(BizHawkClient):
             if self.game_state_safe:
                 await self.run_locked(ctx, self.maybe_write_next_item)
 
-            flag_bytes = (
-                await bizhawk.read(ctx.bizhawk_ctx, [(FLAGS_ADDR, 8, "System Bus")])
-            )[0]
+            flag_bytes, deathlink_out_bytes = await bizhawk.read(
+                ctx.bizhawk_ctx,
+                [
+                    (FLAGS_ADDR, 8, "System Bus"),
+                    (ARCHIPELAGO_DEATHLINK_OUT, 1, "System Bus"),
+                ],
+            )
             local_checked_locations = set()
             game_clear = False
+
+            deathlink_out = deathlink_out_bytes[0]
+            if deathlink_out:
+                deathlink_out -= 1
+                name = (
+                    ctx.player_names[ctx.slot]
+                    if ctx.slot is not None
+                    else "The Renais Army"
+                )
+                await ctx.send_death(self.deathlink_kind.message().format(name))
+                await bizhawk.write(
+                    ctx.bizhawk_ctx,
+                    [(ARCHIPELAGO_DEATHLINK_OUT, bytes([deathlink_out % 256]), "System Bus")],
+                )
 
             for byte_i, byte in enumerate(flag_bytes):
                 for i in range(8):

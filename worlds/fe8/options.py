@@ -174,7 +174,21 @@ class NormalizeGenders(Toggle):
     default = 0
 
 
-# CR-someday cam: think about how this interacts with chapter select mode
+class DeathLink(Choice):
+    """
+    When you die, everyone dies. Of course the reverse is true, too.
+    """
+
+    display_name = "DeathLink"
+    option_off = 0
+    alias_no = 0
+    option_OnGameOver = 1
+    alias_gameover = 1
+    option_OnEveryDeath = 2
+    alias_death = 2
+
+
+# CR-someday cam: think about how this interacts with creature campaign mode
 class Goal(Choice):
     """
     Set the goal of the game.
@@ -213,6 +227,7 @@ class FE8Options(PerGameCommonOptions):
     shuffle_skirmish_tables: ShuffleSkirmishTables
     lockpick_usability: LockpickUsability
     normalize_genders: NormalizeGenders
+    death_link: DeathLink
     goal: Goal
 
     # Convenience methods for options that imply each other
