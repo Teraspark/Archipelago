@@ -160,6 +160,8 @@ class FE8Client(BizHawkClient):
             self.game_state_safe = False
 
     async def on_deathlink(self, ctx: BizHawkClientContext):
+        if not self.deathlink_kind:
+            return
         await self.run_locked(ctx, self.handle_deathlink_in)
 
     # requires: locked
