@@ -6,6 +6,7 @@ from typing import (
     Awaitable,
 )
 from enum import IntEnum
+import struct
 
 from NetUtils import ClientStatus
 
@@ -252,7 +253,7 @@ class FE8Client(BizHawkClient):
             local_checked_locations = set()
             game_clear = False
 
-            deathlink_out = deathlink_out_bytes[0]
+            (deathlink_out,) = struct.unpack("<1b", deathlink_out_bytes)
             if deathlink_out:
                 deathlink_out -= 1
                 name = (
@@ -263,7 +264,13 @@ class FE8Client(BizHawkClient):
                 await ctx.send_death(self.deathlink_kind.message().format(name))
                 await bizhawk.write(
                     ctx.bizhawk_ctx,
-                    [(ARCHIPELAGO_DEATHLINK_OUT, bytes([deathlink_out % 256]), "System Bus")],
+                    [
+                        (
+                            ARCHIPELAGO_DEATHLINK_OUT,
+                            bytes([deathlink_out % 256]),
+                            "System Bus",
+                        )
+                    ],
                 )
 
             for byte_i, byte in enumerate(flag_bytes):
