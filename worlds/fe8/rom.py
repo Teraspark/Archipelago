@@ -64,6 +64,8 @@ class FE8PatchExtension(APPatchExtension):
         if config["normalize_genders"]:
             randomizer.normalize_genders()
 
+        randomizer.randomize_growths(*config["growth_rando"])
+
         return bytes(mut_rom)
 
 
@@ -117,6 +119,11 @@ def write_tokens(world: "FE8World", patch: FE8ProcedurePatch):
         "unbreakable_regalia": bool(options.unbreakable_regalia),
         "shuffle_skirmish_tables": bool(options.shuffle_skirmish_tables),
         "normalize_genders": bool(options.normalize_genders),
+        "growth_rando": (
+            int(options.growth_rando),
+            int(options.growth_rando_min),
+            int(options.growth_rando_max),
+        ),
         "seed": multiworld.seed,
         "player": player,
     }
