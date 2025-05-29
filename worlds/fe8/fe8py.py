@@ -4,6 +4,7 @@ from random import Random
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import IntEnum
+import itertools
 import logging
 
 from typing import Any, Union, Optional, Callable, Iterable, Tuple
@@ -24,6 +25,7 @@ from .constants import (
     CHARACTER_SIZE,
     CHARACTER_WRANK_OFFSET,
     CHARACTER_STATS_OFFSET,
+    CHARACTER_GROWTHS_OFFSET,
     CHAR_ABILITY_4_OFFSET,
     JOB_TABLE_BASE,
     JOB_SIZE,
@@ -109,6 +111,13 @@ class UnitBlock:
         self.logic = defaultdict(
             dict, {int_if_possible(k): v for k, v in logic.items()}
         )
+
+
+class GrowthRandoKind(IntEnum):
+    NONE = 0
+    REDISTRIBUTE = 1
+    DELTA = 2
+    FULL = 3
 
 
 class WeaponKind(IntEnum):
@@ -975,3 +984,45 @@ class FE8Randomizer:
             weapon_base = ITEM_TABLE_BASE + weapon_id * ITEM_SIZE
             ability_1_base = weapon_base + ITEM_ABILITY_1_INDEX
             self.rom[ability_1_base] |= UNBREAKABLE_FLAG
+
+    def randomize_growths(self, kind: GrowthRandoKind, grmin: int, grmax: int) -> None:
+        player_ids: Iterable[int] = itertools.chain.from_iterable(
+            ids
+            for ids in (
+                self.character_store.lookup_ids(char)
+                for char in self.character_store.character_tags
+                if "player" in self.character_store.character_tags[char]
+            )
+            if ids is not None
+        )
+
+        for char_id in player_ids:
+            char_base = CHARACTER_TABLE_BASE + CHARACTER_SIZE * char_id
+            growths_base = char_base + CHARACTER_GROWTHS_OFFSET
+            growths = list(self.rom[growths_base : growths_base + STATS_COUNT + 1])
+            new_growths: list[int]
+            match kind:
+                case GrowthRandoKind.NONE:
+                    # do nothing, and in fact just end growth randomization entirely
+                    return
+                case GrowthRandoKind.REDISTRIBUTE:
+                    delta = self.random.randint(grmin, grmax)
+                    direction = self.random.choice([-1, 1])
+                    total = sum(growths) + delta * direction
+                    cuts = sorted(self.random.sample(range(1, total), STATS_COUNT))
+                    new_growths = [
+                        end - st for st, end in zip(cuts + [total], [0] + cuts)
+                    ]
+                case GrowthRandoKind.DELTA:
+
+                    def roll_delta() -> int:
+                        delta = self.random.randint(grmin,grmax)
+                        direction = self.random.choice([-1, 1])
+                        return delta * direction
+
+                    new_growths = [growth + roll_delta() for growth in growths]
+                case GrowthRandoKind.FULL:
+                    new_growths = [self.random.randint(grmin, grmax) for _ in growths]
+
+            for i in range(STATS_COUNT + 1):
+                self.rom[growths_base + i] = new_growths[i]

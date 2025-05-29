@@ -188,6 +188,46 @@ class DeathLink(Choice):
     alias_death = 2
 
 
+class GrowthRando(Choice):
+    """
+    Randomizes growth rates.
+
+    - Redistribute: Preserves growth total, possibly adjusted (positive or negative)
+      between GrowthRandoMin and GrowthRandoMax.
+    - Delta: Adjusts vanilla growths by amounts between GrowthRandoMin and GrowthRandoMax
+    - Full Random: Growths are assigned randomly between GrowthRandoMin and GrowthRandoMax
+
+    GrowthRandoMin and GrowthRandoMax control the min/max
+    """
+    display_name = "Growth Randomizing"
+
+    option_Vanilla = 0
+    alias_no = 0
+    alias_off = 0
+    option_Redistribute = 1
+    option_Delta = 2
+    option_Full = 3
+
+
+class GrowthRandoMin(Range):
+    """
+    See Growth Rando.
+    """
+    display_name = "Growth Rando Min"
+    range_start = 0
+    range_end = 255
+    default = 10
+
+class GrowthRandoMax(Range):
+    """
+    See Growth Rando.
+    """
+    display_name = "Growth Rando Max"
+    range_start = 0
+    range_end = 255
+    default = 70
+
+
 # CR-someday cam: think about how this interacts with creature campaign mode
 class Goal(Choice):
     """
@@ -228,6 +268,9 @@ class FE8Options(PerGameCommonOptions):
     lockpick_usability: LockpickUsability
     normalize_genders: NormalizeGenders
     death_link: DeathLink
+    growth_rando: GrowthRando
+    growth_rando_min: GrowthRandoMin
+    growth_rando_max: GrowthRandoMax
     goal: Goal
 
     # Convenience methods for options that imply each other
