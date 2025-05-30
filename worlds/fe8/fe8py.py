@@ -4,12 +4,14 @@ from random import Random
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import IntEnum
+import operator
 import itertools
+import functools
 import logging
 
 from typing import Any, Union, Optional, Callable, Iterable, Tuple
 
-from .util import fetch_json, write_short_le, read_short_le, read_word_le
+from .util import fetch_json, write_short_le, read_short_le, read_word_le, write_word_le
 
 # XXX: most python lsps can't handle `from .constants import *`, so we have to
 # specify these manually...
@@ -67,6 +69,8 @@ from .constants import (
     INTERNAL_RANDO_WEAPONS_MAX_CLASSES,
     INTERNAL_RANDO_WEAPON_TABLE_ROWS,
     FEMALE_JOBS,
+    SONG_TABLE_BASE,
+    SONG_SIZE,
 )
 
 DEBUG = False
@@ -76,6 +80,7 @@ DEBUG = False
 
 WEAPON_DATA = "data/weapondata.json"
 JOB_DATA = "data/jobdata.json"
+SONG_DATA = "data/songdata.json"
 CHARACTERS = "data/characters.json"
 CHAPTER_UNIT_BLOCKS = "data/chapter_unit_blocks.json"
 INTERNAL_RANDO_VALID_DISTRIBS = "data/internal_rando_distribs.json"
@@ -118,6 +123,12 @@ class GrowthRandoKind(IntEnum):
     REDISTRIBUTE = 1
     DELTA = 2
     FULL = 3
+
+
+class MusicRandoKind(IntEnum):
+    VANILLA = 0
+    CONTEXT = 1
+    CHAOS = 2
 
 
 class WeaponKind(IntEnum):
@@ -381,6 +392,7 @@ class FE8Randomizer:
     valid_distribs_by_row: dict[int, list[int]]
     promoted_jobs: list[JobData]
     unpromoted_jobs: list[JobData]
+    songs: dict[str, dict[int, str]]
 
     random: Random
     rom: bytearray
@@ -453,6 +465,11 @@ class FE8Randomizer:
         # unless they have an A rank weapon. There are a few easy ways to hack that
         # in, but I'm going to punt on it for now because that's a bunch of design
         # decisions we can make later.
+
+        songdata = fetch_json(SONG_DATA)
+        self.songs = defaultdict(dict)
+        for song in songdata:
+            self.songs[song["category"]][int(song["id"], 16)] = song["name"]
 
     def job_valid(self, job: JobData, char: int, logic: dict[str, Any]) -> bool:
         # get list of tags that make the job invalid (notags)
@@ -996,6 +1013,11 @@ class FE8Randomizer:
             if ids is not None
         )
 
+        def roll_delta() -> int:
+            delta = self.random.randint(grmin, grmax)
+            direction = self.random.choice([-1, 1])
+            return delta * direction
+
         for char_id in player_ids:
             char_base = CHARACTER_TABLE_BASE + CHARACTER_SIZE * char_id
             growths_base = char_base + CHARACTER_GROWTHS_OFFSET
@@ -1003,26 +1025,51 @@ class FE8Randomizer:
             new_growths: list[int]
             match kind:
                 case GrowthRandoKind.NONE:
-                    # do nothing, and in fact just end growth randomization entirely
                     return
                 case GrowthRandoKind.REDISTRIBUTE:
-                    delta = self.random.randint(grmin, grmax)
-                    direction = self.random.choice([-1, 1])
-                    total = sum(growths) + delta * direction
+                    total = sum(growths) + roll_delta()
                     cuts = sorted(self.random.sample(range(1, total), STATS_COUNT))
                     new_growths = [
                         end - st for st, end in zip(cuts + [total], [0] + cuts)
                     ]
                 case GrowthRandoKind.DELTA:
-
-                    def roll_delta() -> int:
-                        delta = self.random.randint(grmin,grmax)
-                        direction = self.random.choice([-1, 1])
-                        return delta * direction
-
                     new_growths = [growth + roll_delta() for growth in growths]
                 case GrowthRandoKind.FULL:
                     new_growths = [self.random.randint(grmin, grmax) for _ in growths]
 
             for i in range(STATS_COUNT + 1):
                 self.rom[growths_base + i] = new_growths[i]
+
+    def generate_swaps(
+        self, songs: dict[int, str]
+    ) -> list[Tuple[Tuple[int, str], Tuple[int, str]]]:
+        ids = list(songs.items())
+        return list(zip(ids, self.random.sample(ids, k=len(ids))))
+
+    def randomize_music(self, kind: MusicRandoKind) -> None:
+        swaps: list[Tuple[Tuple[int, str], Tuple[int, str]]]
+        match kind:
+            case MusicRandoKind.VANILLA:
+                return
+            case MusicRandoKind.CONTEXT:
+                swaps = list(
+                    itertools.chain.from_iterable(
+                        self.generate_swaps(songs)
+                        for (_ctx, songs) in self.songs.items()
+                    )
+                )
+            case MusicRandoKind.CHAOS:
+                swaps = self.generate_swaps(
+                    functools.reduce(operator.or_, self.songs.values())
+                )
+
+        logging.debug("Music rando song swaps:")
+        ptrs: list[Tuple[int, int]] = []
+        for (baseid, basename), (newid, newname) in swaps:
+            logging.debug(f"  {basename} ({hex(baseid)}) -> {newname} ({hex(newid)})")
+            ptrs.append(
+                (baseid, read_word_le(self.rom, SONG_TABLE_BASE + newid * SONG_SIZE))
+            )
+
+        for id, ptr in ptrs:
+            write_word_le(self.rom, SONG_TABLE_BASE + id * SONG_SIZE, ptr)

@@ -65,6 +65,7 @@ class FE8PatchExtension(APPatchExtension):
             randomizer.normalize_genders()
 
         randomizer.randomize_growths(*config["growth_rando"])
+        randomizer.randomize_music(config["music_rando"])
 
         return bytes(mut_rom)
 
@@ -124,6 +125,7 @@ def write_tokens(world: "FE8World", patch: FE8ProcedurePatch):
             int(options.growth_rando_min),
             int(options.growth_rando_max),
         ),
+        "music_rando": int(options.music_rando),
         "seed": multiworld.seed,
         "player": player,
     }

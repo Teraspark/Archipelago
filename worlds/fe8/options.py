@@ -199,6 +199,7 @@ class GrowthRando(Choice):
 
     GrowthRandoMin and GrowthRandoMax control the min/max
     """
+
     display_name = "Growth Randomizing"
 
     option_Vanilla = 0
@@ -213,15 +214,18 @@ class GrowthRandoMin(Range):
     """
     See Growth Rando.
     """
+
     display_name = "Growth Rando Min"
     range_start = 0
     range_end = 255
     default = 10
 
+
 class GrowthRandoMax(Range):
     """
     See Growth Rando.
     """
+
     display_name = "Growth Rando Max"
     range_start = 0
     range_end = 255
@@ -250,6 +254,24 @@ class Goal(Choice):
     option_ClearLagdou = 3
 
 
+class MusicRando(Choice):
+    """
+    Randomizes music tracks.
+
+    - Context: Music tracks will be shuffled within the same group (battle themes
+      will be randomized to other battle themes, etc)
+    - Chaos: Music tracks will be shuffled randomly
+    """
+
+    option_Vanilla = 0
+    alias_no = 0
+    alias_off = 0
+    option_Context = 1
+    option_Chaos = 2
+    alias_full = 2
+    alias_all = 2
+
+
 # CR-someday cam: Eventually, it would be nice to be able to generate this.
 @dataclass
 class FE8Options(PerGameCommonOptions):
@@ -271,6 +293,7 @@ class FE8Options(PerGameCommonOptions):
     growth_rando: GrowthRando
     growth_rando_min: GrowthRandoMin
     growth_rando_max: GrowthRandoMax
+    music_rando: MusicRando
     goal: Goal
 
     # Convenience methods for options that imply each other

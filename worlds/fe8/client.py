@@ -254,7 +254,7 @@ class FE8Client(BizHawkClient):
             game_clear = False
 
             (deathlink_out,) = struct.unpack("<1b", deathlink_out_bytes)
-            if deathlink_out:
+            if deathlink_out > 0:
                 deathlink_out -= 1
                 name = (
                     ctx.player_names[ctx.slot]
