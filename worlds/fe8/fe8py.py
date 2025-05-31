@@ -1003,6 +1003,9 @@ class FE8Randomizer:
             self.rom[ability_1_base] |= UNBREAKABLE_FLAG
 
     def randomize_growths(self, kind: GrowthRandoKind, grmin: int, grmax: int) -> None:
+        if grmin > grmax:
+            grmin, grmax = grmax, grmin
+
         player_ids: Iterable[int] = itertools.chain.from_iterable(
             ids
             for ids in (
