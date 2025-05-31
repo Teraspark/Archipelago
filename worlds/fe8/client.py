@@ -4,6 +4,7 @@ from typing import (
     Callable,
     TypeVar,
     Awaitable,
+    Any,
 )
 from enum import IntEnum
 import struct
@@ -54,6 +55,13 @@ RUINS_CLEAR_FLAG = locations["Complete Lagdou Ruins 10"]
 T = TypeVar("T")
 
 
+DEATH_LINK_MSGS = [
+    "{} sent a Death Link!",
+    "{}'s army was defeated!",
+    "{} suffered a casualty!",
+]
+
+
 class DeathLinkKind(IntEnum):
     _ignore_ = ["_msgs"]
 
@@ -61,14 +69,8 @@ class DeathLinkKind(IntEnum):
     ON_GAME_OVER = 1
     ON_ANY_DEATH = 2
 
-    _msgs = [
-        "{} somehow sent a Death Link!",
-        "{}'s army was defeated!",
-        "{} suffered a casualty!",
-    ]
-
     def message(self):
-        return DeathLinkKind._msgs[self]
+        return DEATH_LINK_MSGS[self]
 
 
 class FE8Client(BizHawkClient):
@@ -76,8 +78,10 @@ class FE8Client(BizHawkClient):
     system = "GBA"
     patch_suffix = ".apfe8"
     local_checked_locations: Set[int]
-    game_state_safe: bool = False
+    game_state_safe = False
     deathlink_kind: DeathLinkKind
+    pending_deathlink = False
+    pending_deathlink_deaths = 0
     goal_flag: int
 
     def __init__(self):
@@ -160,13 +164,26 @@ class FE8Client(BizHawkClient):
         else:
             self.game_state_safe = False
 
-    async def on_deathlink(self, ctx: BizHawkClientContext):
+    def on_package(self, ctx: BizHawkClientContext, cmd: str, args: dict[str, Any]):
+        if cmd == "Bounced":
+            if "tags" in args:
+                if ctx.slot is None:
+                    return
+                # This will, in theory, cause us to receive our own deathlinks.
+                # However, because the game itself will be in the middle of a
+                # GameOver, it won't be able to receive it anyway.
+                if "DeathLink" in args["tags"]:
+                    self.pending_deathlink = True
+
+
+    async def handle_pending_deathlink(self, ctx: BizHawkClientContext):
+        self.pending_deathlink = False
         if not self.deathlink_kind:
             return
-        await self.run_locked(ctx, self.handle_deathlink_in)
+        await self.run_locked(ctx, self.run_deathlink)
 
     # requires: locked
-    async def handle_deathlink_in(self, ctx: BizHawkClientContext):
+    async def run_deathlink(self, ctx: BizHawkClientContext):
         ready = (
             await bizhawk.read(
                 ctx.bizhawk_ctx, [(ARCHIPELAGO_DEATHLINK_READY, 1, "System Bus")]
@@ -177,6 +194,7 @@ class FE8Client(BizHawkClient):
         await bizhawk.write(
             ctx.bizhawk_ctx, [(ARCHIPELAGO_DEATHLINK_IN, bytes([1]), "System Bus")]
         )
+        self.pending_deathlink_deaths += 1
 
     async def set_auth(self, ctx: BizHawkClientContext) -> None:
         slot_name_bytes = (
@@ -253,21 +271,27 @@ class FE8Client(BizHawkClient):
             local_checked_locations = set()
             game_clear = False
 
+            if self.pending_deathlink:
+                await self.handle_pending_deathlink(ctx)
+
             (deathlink_out,) = struct.unpack("<1b", deathlink_out_bytes)
             if deathlink_out > 0:
                 deathlink_out -= 1
-                name = (
-                    ctx.player_names[ctx.slot]
-                    if ctx.slot is not None
-                    else "The Renais Army"
-                )
-                await ctx.send_death(self.deathlink_kind.message().format(name))
+                if self.pending_deathlink_deaths:
+                    self.pending_deathlink_deaths -= 1
+                else:
+                    name = (
+                        ctx.player_names[ctx.slot]
+                        if ctx.slot is not None
+                        else "<Unknown Player>"
+                    )
+                    await ctx.send_death(self.deathlink_kind.message().format(name))
                 await bizhawk.write(
                     ctx.bizhawk_ctx,
                     [
                         (
                             ARCHIPELAGO_DEATHLINK_OUT,
-                            bytes([deathlink_out % 256]),
+                            bytes([max(deathlink_out, 0)]),
                             "System Bus",
                         )
                     ],
