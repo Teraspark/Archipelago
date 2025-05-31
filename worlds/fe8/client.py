@@ -172,7 +172,7 @@ class FE8Client(BizHawkClient):
                 # This will, in theory, cause us to receive our own deathlinks.
                 # However, because the game itself will be in the middle of a
                 # GameOver, it won't be able to receive it anyway.
-                if "DeathLink" in args["tags"]:
+                if "DeathLink" in args["tags"] and self.deathlink_kind:
                     self.pending_deathlink = True
 
 
