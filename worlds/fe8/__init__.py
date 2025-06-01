@@ -8,13 +8,13 @@ import pkgutil
 
 # import logging
 
+from Options import OptionError
 from worlds.AutoWorld import World, WebWorld
 from BaseClasses import (
     Region,
     ItemClassification,
     CollectionState,
     Tutorial,
-    MultiWorld,
 )
 import settings
 
@@ -202,7 +202,7 @@ class FE8World(World):
         total_locations = self.total_locations()
 
         if len(progression_items) > total_locations:
-            raise ValueError(
+            raise OptionError(
                 "Could not place all requested weapon levels and level uncaps. "
                 "Reduce the number of required Holy Weapons or disable smooth level caps."
             )
