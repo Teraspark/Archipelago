@@ -167,10 +167,13 @@ class FE8World(World):
         if exclude_latona:
             holy_weapon_pool.remove("Latona")
 
+        if int(required_holy_weapons) > len(holy_weapon_pool):
+            raise OptionError("too many required holy weapons ({int(required_holy_weapons)})")
+
         progression_holy_weapons = self.random.sample(
             list(holy_weapon_pool), k=int(required_holy_weapons)
         )
-        progression_weapon_types = {HOLY_WEAPONS[w] for w in progression_holy_weapons}
+        progression_weapon_types = set(HOLY_WEAPONS[w] for w in progression_holy_weapons)
 
         self.progression_holy_weapons = set(progression_holy_weapons)
 
@@ -189,7 +192,10 @@ class FE8World(World):
         # holy weapons in `other_weapons`.
         self.random.shuffle(other_items)
 
-        for hw in HOLY_WEAPONS:
+        holy_weapons = [name for name in HOLY_WEAPONS.keys()]
+        self.random.shuffle(holy_weapons)
+
+        for hw in holy_weapons:
             register(
                 hw,
                 (
