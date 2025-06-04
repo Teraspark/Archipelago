@@ -1006,7 +1006,7 @@ class FE8Randomizer:
         cuts = sorted(self.random.sample(range(1, total), STATS_COUNT))
         result = []
         overflow = 0
-        for st, end in zip(cuts+[total], [0]+cuts):
+        for st, end in zip([0]+cuts, cuts+[total]):
             growth = end-st
             if growth > 255:
                 result.append(255)
