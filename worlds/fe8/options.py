@@ -197,7 +197,7 @@ class GrowthRando(Choice):
     - Delta: Adjusts vanilla growths by amounts between GrowthRandoMin and GrowthRandoMax
     - Full Random: Growths are assigned randomly between GrowthRandoMin and GrowthRandoMax
 
-    GrowthRandoMin and GrowthRandoMax control the min/max
+    GrowthRandoMin and GrowthRandoMax control the min/max of the adjustment.
     """
 
     display_name = "Growth Randomizing"
@@ -244,7 +244,7 @@ class Goal(Choice):
     - Clear Lagdou: Clear the 10th floor of the Lagdou Ruins. Implies Enable Ruins.
 
     Note that this option only change which check is considered the goal and
-    does not affect progressing logic at all.
+    does not affect progression logic at all.
     """
 
     display_name = "Goal"

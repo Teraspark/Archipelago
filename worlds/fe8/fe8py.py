@@ -1002,6 +1002,28 @@ class FE8Randomizer:
             ability_1_base = weapon_base + ITEM_ABILITY_1_INDEX
             self.rom[ability_1_base] |= UNBREAKABLE_FLAG
 
+    def redistribute_growths(self, total: int) -> list[int]:
+        cuts = sorted(self.random.sample(range(1, total), STATS_COUNT))
+        result = []
+        overflow = 0
+        for st, end in zip(cuts+[total], [0]+cuts):
+            growth = end-st
+            if growth > 255:
+                result.append(255)
+                overflow += growth-255
+            else:
+                result.append(growth)
+        while overflow > 0:
+            available_indices = [i for i, g in enumerate(result) if g < 255]
+            if not available_indices:
+                break
+            i = self.random.choice(available_indices)
+            result[i] += overflow
+            if result[i] > 255:
+                overflow = result[i]-255
+                result[i] = 255
+        return result
+
     def randomize_growths(self, kind: GrowthRandoKind, grmin: int, grmax: int) -> None:
         if grmin > grmax:
             grmin, grmax = grmax, grmin
@@ -1031,12 +1053,9 @@ class FE8Randomizer:
                     return
                 case GrowthRandoKind.REDISTRIBUTE:
                     total = sum(growths) + roll_delta()
-                    cuts = sorted(self.random.sample(range(1, total), STATS_COUNT))
-                    new_growths = [
-                        end - st for st, end in zip(cuts + [total], [0] + cuts)
-                    ]
+                    new_growths = self.redistribute_growths(total)
                 case GrowthRandoKind.DELTA:
-                    new_growths = [growth + roll_delta() for growth in growths]
+                    new_growths = [max(growth + roll_delta(), 0) for growth in growths]
                 case GrowthRandoKind.FULL:
                     new_growths = [self.random.randint(grmin, grmax) for _ in growths]
 
