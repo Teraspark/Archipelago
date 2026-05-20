@@ -99,12 +99,15 @@ class FE8World(World):
     def total_locations(self) -> int:
         tower_checks_enabled = self.options.tower_checks_enabled()
         ruins_checks_enabled = self.options.ruins_checks_enabled()
+        recruit_checks_enabled = bool(self.options.recruit_checks_enabled)
 
         def is_included(loc: Tuple[str, int]):
             name = loc[0]
             if "Valni" in name and not tower_checks_enabled:
                 return False
             if "Lagdou" in name and not ruins_checks_enabled:
+                return False
+            if "Recruited" in name and not recruit_checks_enabled:
                 return False
             return True
 
@@ -152,14 +155,9 @@ class FE8World(World):
                 else other_items
             ).append(self.create_item_with_classification(name, cls))
 
-        for i in range(NUM_LEVELCAPS):
-            register(
-                "Progressive Level Cap",
-                (
-                    ItemClassification.progression
-                    if i < needed_level_uncaps
-                    else ItemClassification.useful
-                ),
+        for _ in range(NUM_LEVELCAPS):
+            self.push_precollected(
+                self.create_item_with_classification("Progressive Level Cap", ItemClassification.useful)
             )
 
         holy_weapon_pool = set(HOLY_WEAPONS.keys())
@@ -187,6 +185,19 @@ class FE8World(World):
                         else ItemClassification.useful
                     ),
                 )
+
+        if self.options.recruit_checks_enabled:
+            progressive_seth = bool(self.options.progressive_seth_deployment)
+            for name, _ in items:
+                if name == "Deploy Seth":
+                    if not progressive_seth:
+                        register(name, ItemClassification.useful)
+                elif name == "Progressive Seth Deployment":
+                    if progressive_seth:
+                        for _ in range(4):
+                            register(name, ItemClassification.useful)
+                elif "Deploy" in name:
+                    register(name, ItemClassification.useful)
 
         # We shuffle here to ensure that level caps and weapon levels come before
         # holy weapons in `other_weapons`.
@@ -319,6 +330,11 @@ class FE8World(World):
             self.add_location_to_region("Ivaldi Received", None, lategame)
             self.add_location_to_region("Latona Received", None, lategame)
 
+            if self.options.recruit_checks_enabled:
+                for name, _ in locations:
+                    if "Recruited" in name:
+                        self.add_location_to_region(name, None, prologue)
+
             menu.connect(prologue, "Start Game")
             prologue.add_exits(
                 {"Routesplit": "Clear chapter 8"},
@@ -335,9 +351,12 @@ class FE8World(World):
         else:
             campaign = Region("Campaign", self.player, self.multiworld)
 
+            recruit_checks_enabled = bool(self.options.recruit_checks_enabled)
             for name, lid in locations:
                 # TODO (cam): do this better
                 if any(item in name for item in ("Formortiis", "Valni", "Lagdou")):
+                    continue
+                if "Recruited" in name and not recruit_checks_enabled:
                     continue
                 self.add_location_to_region(name, lid, campaign)
 
