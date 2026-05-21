@@ -39,6 +39,17 @@ from .rom import FE8ProcedurePatch, write_tokens
 # the unused import warning
 _ = FE8Client
 
+_DEPLOY_EARLY_UNITS = frozenset({
+    "Seth", "Franz", "Gilliam", "Vanessa", "Moulder", "Ross", "Garcia",
+    "Neimi", "Colm", "Artur", "Lute", "Natasha", "Joshua", "Forde",
+    "Kyle", "Tana", "Amelia",
+})
+_DEPLOY_MID_UNITS = frozenset({
+    "Innes", "Gerik", "Tethys", "Marisa", "L'Arachel", "Dozla", "Saleh",
+    "Ewan", "Cormag", "Rennac", "Duessel", "Knoll",
+})
+# late tier: Myrrh, Syrene
+
 
 class FE8WebWorld(WebWorld):
     """
@@ -245,14 +256,14 @@ class FE8World(World):
         region.locations.append(FE8Location(self.player, name, address, region))
 
     def create_regions(self) -> None:
-        smooth_level_caps = self.options.smooth_level_caps
         min_endgame_level_cap = int(self.options.min_endgame_level_cap)
+        smooth_level_caps = self.options.smooth_level_caps
+        smooth_deployments = self.options.smooth_deployments
+        use_three_regions = bool(smooth_level_caps) or bool(smooth_deployments)
 
         menu = Region("Menu", self.player, self.multiworld)
         finalboss = Region("FinalBoss", self.player, self.multiworld)
-
-        self.multiworld.regions.append(menu)
-        self.multiworld.regions.append(finalboss)
+        self.multiworld.regions += [menu, finalboss]
 
         self.add_location_to_region("Defeat Formortiis", None, finalboss)
 
@@ -285,14 +296,12 @@ class FE8World(World):
 
             return True
 
-        if smooth_level_caps:
+        if use_three_regions:
             prologue = Region("Before Routesplit", self.player, self.multiworld)
             route_split = Region("Routesplit", self.player, self.multiworld)
             lategame = Region("Post-routesplit", self.player, self.multiworld)
 
-            self.multiworld.regions.append(prologue)
-            self.multiworld.regions.append(route_split)
-            self.multiworld.regions.append(lategame)
+            self.multiworld.regions += [prologue, route_split, lategame]
 
             self.add_location_to_region("Complete Prologue", None, prologue)
             self.add_location_to_region("Complete Chapter 1", None, prologue)
@@ -331,23 +340,91 @@ class FE8World(World):
             self.add_location_to_region("Latona Received", None, lategame)
 
             if self.options.recruit_checks_enabled:
-                for name, _ in locations:
-                    if "Recruited" in name:
-                        self.add_location_to_region(name, None, prologue)
+                if smooth_deployments:
+                    for name, _ in locations:
+                        if "Recruited" not in name:
+                            continue
+                        unit = name.replace(" Recruited", "")
+                        if unit in _DEPLOY_EARLY_UNITS:
+                            self.add_location_to_region(name, None, prologue)
+                        elif unit in _DEPLOY_MID_UNITS:
+                            self.add_location_to_region(name, None, route_split)
+                        else:
+                            self.add_location_to_region(name, None, lategame)
+                else:
+                    for name, _ in locations:
+                        if "Recruited" in name:
+                            self.add_location_to_region(name, None, prologue)
 
             menu.connect(prologue, "Start Game")
-            prologue.add_exits(
-                {"Routesplit": "Clear chapter 8"},
-                {"Routesplit": level_cap_at_least(15)},
-            )
-            route_split.add_exits(
-                {"Post-routesplit": "Clear chapter 15"},
-                {"Post-routesplit": level_cap_at_least(25)},
-            )
+            if smooth_level_caps:
+                prologue.add_exits(
+                    {"Routesplit": "Clear chapter 8"},
+                    {"Routesplit": level_cap_at_least(15)},
+                )
+                route_split.add_exits(
+                    {"Post-routesplit": "Clear chapter 15"},
+                    {"Post-routesplit": level_cap_at_least(25)},
+                )
+            else:
+                prologue.add_exits({"Routesplit": "Clear chapter 8"})
+                route_split.add_exits({"Post-routesplit": "Clear chapter 15"})
+
             lategame.add_exits(
                 {"FinalBoss": "Clear chapter 20"},
                 {"FinalBoss": finalboss_rule},
             )
+
+            if self.options.tower_checks_enabled():
+                tower = Region("Tower of Valni", self.player, self.multiworld)
+                self.multiworld.regions.append(tower)
+
+                self.add_location_to_region("Complete Tower of Valni 1", None, tower)
+                self.add_location_to_region("Complete Tower of Valni 2", None, tower)
+                self.add_location_to_region("Complete Tower of Valni 3", None, tower)
+                self.add_location_to_region("Complete Tower of Valni 4", None, tower)
+                self.add_location_to_region("Complete Tower of Valni 5", None, tower)
+                self.add_location_to_region("Complete Tower of Valni 6", None, tower)
+                self.add_location_to_region("Complete Tower of Valni 7", None, tower)
+                self.add_location_to_region("Complete Tower of Valni 8", None, tower)
+
+                if smooth_level_caps:
+                    route_split.add_exits(
+                        {"Tower of Valni": "Complete Chapter 15"},
+                        {"Tower of Valni": level_cap_at_least(20)},
+                    )
+                    tower.add_exits(
+                        {"Post-routesplit": "Complete Tower of Valni 8"},
+                        {"Post-routesplit": level_cap_at_least(25)},
+                    )
+                else:
+                    route_split.add_exits({"Tower of Valni": "Complete Chapter 15"})
+                    tower.add_exits({"Post-routesplit": "Complete Tower of Valni 8"})
+
+            if self.options.ruins_checks_enabled():
+                ruins = Region("Lagdou Ruins", self.player, self.multiworld)
+                self.multiworld.regions.append(ruins)
+
+                self.add_location_to_region("Complete Lagdou Ruins 1", None, ruins)
+                self.add_location_to_region("Complete Lagdou Ruins 2", None, ruins)
+                self.add_location_to_region("Complete Lagdou Ruins 3", None, ruins)
+                self.add_location_to_region("Complete Lagdou Ruins 4", None, ruins)
+                self.add_location_to_region("Complete Lagdou Ruins 5", None, ruins)
+                self.add_location_to_region("Complete Lagdou Ruins 6", None, ruins)
+                self.add_location_to_region("Complete Lagdou Ruins 7", None, ruins)
+                self.add_location_to_region("Complete Lagdou Ruins 8", None, ruins)
+                self.add_location_to_region("Complete Lagdou Ruins 9", None, ruins)
+                self.add_location_to_region("Complete Lagdou Ruins 10", None, ruins)
+
+                if smooth_level_caps:
+                    lategame.add_exits(
+                        {"Lagdou Ruins": "Complete Chapter 19"},
+                        {"Lagdou Ruins": finalboss_rule},
+                    )
+                else:
+                    lategame.add_exits({"Lagdou Ruins": "Complete Chapter 19"})
+                ruins.add_exits({"Post-routesplit": "Complete Lagdou Ruins 10"})
+
         else:
             campaign = Region("Campaign", self.player, self.multiworld)
 
@@ -368,56 +445,90 @@ class FE8World(World):
 
             self.multiworld.regions.append(campaign)
 
-        if self.options.tower_checks_enabled():
-            tower = Region("Tower of Valni", self.player, self.multiworld)
-            self.multiworld.regions.append(tower)
+            if self.options.tower_checks_enabled():
+                tower = Region("Tower of Valni", self.player, self.multiworld)
+                self.multiworld.regions.append(tower)
 
-            self.add_location_to_region("Complete Tower of Valni 1", None, tower)
-            self.add_location_to_region("Complete Tower of Valni 2", None, tower)
-            self.add_location_to_region("Complete Tower of Valni 3", None, tower)
-            self.add_location_to_region("Complete Tower of Valni 4", None, tower)
-            self.add_location_to_region("Complete Tower of Valni 5", None, tower)
-            self.add_location_to_region("Complete Tower of Valni 6", None, tower)
-            self.add_location_to_region("Complete Tower of Valni 7", None, tower)
-            self.add_location_to_region("Complete Tower of Valni 8", None, tower)
+                self.add_location_to_region("Complete Tower of Valni 1", None, tower)
+                self.add_location_to_region("Complete Tower of Valni 2", None, tower)
+                self.add_location_to_region("Complete Tower of Valni 3", None, tower)
+                self.add_location_to_region("Complete Tower of Valni 4", None, tower)
+                self.add_location_to_region("Complete Tower of Valni 5", None, tower)
+                self.add_location_to_region("Complete Tower of Valni 6", None, tower)
+                self.add_location_to_region("Complete Tower of Valni 7", None, tower)
+                self.add_location_to_region("Complete Tower of Valni 8", None, tower)
 
-            if smooth_level_caps:
-                route_split.add_exits(
-                    {"Tower of Valni": "Complete Chapter 15"},
-                    {"Tower of Valni": level_cap_at_least(20)},
-                )
-                tower.add_exits(
-                    {"Post-routesplit": "Complete Tower of Valni 8"},
-                    {"Post-routesplit": level_cap_at_least(25)},
-                )
-            else:
                 campaign.add_exits({"Tower of Valni": "Complete Chapter 15"})
                 tower.add_exits({"Campaign": "Complete Tower of Valni 8"})
 
-        if self.options.ruins_checks_enabled():
-            ruins = Region("Lagdou Ruins", self.player, self.multiworld)
-            self.multiworld.regions.append(ruins)
+            if self.options.ruins_checks_enabled():
+                ruins = Region("Lagdou Ruins", self.player, self.multiworld)
+                self.multiworld.regions.append(ruins)
 
-            self.add_location_to_region("Complete Lagdou Ruins 1", None, ruins)
-            self.add_location_to_region("Complete Lagdou Ruins 2", None, ruins)
-            self.add_location_to_region("Complete Lagdou Ruins 3", None, ruins)
-            self.add_location_to_region("Complete Lagdou Ruins 4", None, ruins)
-            self.add_location_to_region("Complete Lagdou Ruins 5", None, ruins)
-            self.add_location_to_region("Complete Lagdou Ruins 6", None, ruins)
-            self.add_location_to_region("Complete Lagdou Ruins 7", None, ruins)
-            self.add_location_to_region("Complete Lagdou Ruins 8", None, ruins)
-            self.add_location_to_region("Complete Lagdou Ruins 9", None, ruins)
-            self.add_location_to_region("Complete Lagdou Ruins 10", None, ruins)
+                self.add_location_to_region("Complete Lagdou Ruins 1", None, ruins)
+                self.add_location_to_region("Complete Lagdou Ruins 2", None, ruins)
+                self.add_location_to_region("Complete Lagdou Ruins 3", None, ruins)
+                self.add_location_to_region("Complete Lagdou Ruins 4", None, ruins)
+                self.add_location_to_region("Complete Lagdou Ruins 5", None, ruins)
+                self.add_location_to_region("Complete Lagdou Ruins 6", None, ruins)
+                self.add_location_to_region("Complete Lagdou Ruins 7", None, ruins)
+                self.add_location_to_region("Complete Lagdou Ruins 8", None, ruins)
+                self.add_location_to_region("Complete Lagdou Ruins 9", None, ruins)
+                self.add_location_to_region("Complete Lagdou Ruins 10", None, ruins)
 
-            if smooth_level_caps:
-                lategame.add_exits(
-                    {"Lagdou Ruins": "Complete Chapter 19"},
-                    {"Lagdou Ruins": finalboss_rule},
-                )
-                ruins.add_exits({"Post-routesplit": "Complete Lagdou Ruins 10"})
-            else:
                 campaign.add_exits({"Lagdou Ruins": "Complete Chapter 19"})
                 ruins.add_exits({"Campaign": "Complete Lagdou Ruins 10"})
+
+    def pre_fill(self) -> None:
+        if not self.options.recruit_checks_enabled:
+            return
+        if not self.options.smooth_deployments:
+            return
+
+        from Fill import fill_restrictive
+
+        def deploy_tier(item) -> int:
+            if item.player != self.player:
+                return 0
+            if item.name in ("Deploy Seth", "Progressive Seth Deployment"):
+                return 1
+            if item.name.startswith("Deploy "):
+                unit = item.name[len("Deploy "):]
+                if unit in _DEPLOY_EARLY_UNITS:
+                    return 1
+                if unit in _DEPLOY_MID_UNITS:
+                    return 2
+                return 3
+            return 0
+
+        by_tier: dict[int, list] = {1: [], 2: [], 3: []}
+        remaining = []
+        for item in self.multiworld.itempool:
+            t = deploy_tier(item)
+            if t:
+                by_tier[t].append(item)
+            else:
+                remaining.append(item)
+        self.multiworld.itempool = remaining
+
+        all_state = self.multiworld.get_all_state(perform_sweep=False)
+
+        for tier, region_name in [
+            (1, "Before Routesplit"),
+            (2, "Routesplit"),
+            (3, "Post-routesplit"),
+        ]:
+            locs = [
+                loc for loc in self.multiworld.get_region(region_name, self.player).locations
+                if not loc.item
+            ]
+            items = by_tier[tier]
+            self.random.shuffle(locs)
+            self.random.shuffle(items)
+            fill_restrictive(
+                self.multiworld, all_state, locs, items,
+                lock=True, name="FE8 Deploy Permits",
+            )
 
     def fill_slot_data(self) -> dict[str, Any]:
         slot_data = self.options.as_dict("goal")

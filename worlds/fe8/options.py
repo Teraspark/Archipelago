@@ -141,6 +141,21 @@ class ProgressiveSethDeployment(Toggle):
     default = 0
 
 
+class SmoothDeployments(Toggle):
+    """
+    Spread deploy permits across the three chapter phases of the game.
+    Requires Enable recruit checks.
+
+    Units recruited by Chapter 7 have their deploy permits placed in sphere-1
+    locations (Before Routesplit), units from Chapter 8 through Chapter 17 in
+    sphere-2 locations (Routesplit), and the final two units (Myrrh, Syrene)
+    in sphere-3 locations (Post-routesplit).
+    """
+
+    display_name = "Smooth deployments"
+    default = 0
+
+
 class EnableTower(Toggle):
     """
     Make each floor of the Tower of Valni a check. This can help balance the
@@ -311,6 +326,7 @@ class FE8Options(PerGameCommonOptions):
     unbreakable_regalia: UnbreakableRegalia
     recruit_checks_enabled: EnableRecruitChecks
     progressive_seth_deployment: ProgressiveSethDeployment
+    smooth_deployments: SmoothDeployments
     tower_enabled: EnableTower
     ruins_enabled: EnableRuins
     shuffle_skirmish_tables: ShuffleSkirmishTables

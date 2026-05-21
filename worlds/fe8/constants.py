@@ -75,6 +75,7 @@ TOTAL_NUM_PROCS = 0x40
 # These are literal addresses including the ROM offset because we compare
 # against them, rather than reading or writing.
 WM_PROC_ADDRESS = 0x08A3EE74
+PREP_SCREEN_PROC_ADDRESS = 0x0859DBBC
 E_PLAYERPHASE_PROC_ADDRESS = 0x0859AAD8
 
 LOCKPICK = 0x6B
