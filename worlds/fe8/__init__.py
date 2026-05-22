@@ -39,15 +39,43 @@ from .rom import FE8ProcedurePatch, write_tokens
 # the unused import warning
 _ = FE8Client
 
-_DEPLOY_EARLY_UNITS = frozenset({
-    "Seth", "Franz", "Gilliam", "Vanessa", "Moulder", "Ross", "Garcia",
-    "Neimi", "Colm", "Artur", "Lute", "Natasha", "Joshua", "Forde",
-    "Kyle", "Tana", "Amelia",
-})
-_DEPLOY_MID_UNITS = frozenset({
-    "Innes", "Gerik", "Tethys", "Marisa", "L'Arachel", "Dozla", "Saleh",
-    "Ewan", "Cormag", "Rennac", "Duessel", "Knoll",
-})
+_DEPLOY_EARLY_UNITS = frozenset(
+    {
+        "Seth",
+        "Franz",
+        "Gilliam",
+        "Vanessa",
+        "Moulder",
+        "Ross",
+        "Garcia",
+        "Neimi",
+        "Colm",
+        "Artur",
+        "Lute",
+        "Natasha",
+        "Joshua",
+        "Forde",
+        "Kyle",
+        "Tana",
+        "Amelia",
+    }
+)
+_DEPLOY_MID_UNITS = frozenset(
+    {
+        "Innes",
+        "Gerik",
+        "Tethys",
+        "Marisa",
+        "L'Arachel",
+        "Dozla",
+        "Saleh",
+        "Ewan",
+        "Cormag",
+        "Rennac",
+        "Duessel",
+        "Knoll",
+    }
+)
 # late tier: Myrrh, Syrene
 
 
@@ -166,9 +194,14 @@ class FE8World(World):
                 else other_items
             ).append(self.create_item_with_classification(name, cls))
 
-        for _ in range(NUM_LEVELCAPS):
-            self.push_precollected(
-                self.create_item_with_classification("Progressive Level Cap", ItemClassification.useful)
+        for i in range(NUM_LEVELCAPS):
+            register(
+                "Progressive Level Cap",
+                (
+                    ItemClassification.progression
+                    if i < needed_level_uncaps
+                    else ItemClassification.useful
+                ),
             )
 
         holy_weapon_pool = set(HOLY_WEAPONS.keys())
@@ -177,12 +210,16 @@ class FE8World(World):
             holy_weapon_pool.remove("Latona")
 
         if int(required_holy_weapons) > len(holy_weapon_pool):
-            raise OptionError("too many required holy weapons ({int(required_holy_weapons)})")
+            raise OptionError(
+                "too many required holy weapons ({int(required_holy_weapons)})"
+            )
 
         progression_holy_weapons = self.random.sample(
             list(holy_weapon_pool), k=int(required_holy_weapons)
         )
-        progression_weapon_types = set(HOLY_WEAPONS[w] for w in progression_holy_weapons)
+        progression_weapon_types = set(
+            HOLY_WEAPONS[w] for w in progression_holy_weapons
+        )
 
         self.progression_holy_weapons = set(progression_holy_weapons)
 
@@ -493,7 +530,7 @@ class FE8World(World):
             if item.name in ("Deploy Seth", "Progressive Seth Deployment"):
                 return 1
             if item.name.startswith("Deploy "):
-                unit = item.name[len("Deploy "):]
+                unit = item.name[len("Deploy ") :]
                 if unit in _DEPLOY_EARLY_UNITS:
                     return 1
                 if unit in _DEPLOY_MID_UNITS:
@@ -519,15 +556,22 @@ class FE8World(World):
             (3, "Post-routesplit"),
         ]:
             locs = [
-                loc for loc in self.multiworld.get_region(region_name, self.player).locations
+                loc
+                for loc in self.multiworld.get_region(
+                    region_name, self.player
+                ).locations
                 if not loc.item
             ]
             items = by_tier[tier]
             self.random.shuffle(locs)
             self.random.shuffle(items)
             fill_restrictive(
-                self.multiworld, all_state, locs, items,
-                lock=True, name="FE8 Deploy Permits",
+                self.multiworld,
+                all_state,
+                locs,
+                items,
+                lock=True,
+                name="FE8 Deploy Permits",
             )
 
     def fill_slot_data(self) -> dict[str, Any]:
