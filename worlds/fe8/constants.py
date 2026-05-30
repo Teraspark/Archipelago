@@ -223,3 +223,42 @@ INTERNAL_RANDO_WEAPON_TABLE_ROWS = [
     ("Fang", 1),
     ("MonsterDark", 3),
 ]
+
+DEPLOY_EARLY_UNITS = frozenset(
+    {
+        "Seth",
+        "Franz",
+        "Gilliam",
+        "Vanessa",
+        "Moulder",
+        "Ross",
+        "Garcia",
+        "Neimi",
+        "Colm",
+        "Artur",
+        "Lute",
+        "Natasha",
+        "Joshua",
+        "Forde",
+        "Kyle",
+        "Tana",
+        "Amelia",
+    }
+)
+DEPLOY_MID_UNITS = frozenset(
+    {
+        "Innes",
+        "Gerik",
+        "Tethys",
+        "Marisa",
+        "L'Arachel",
+        "Dozla",
+        "Saleh",
+        "Ewan",
+        "Cormag",
+        "Rennac",
+        "Duessel",
+        "Knoll",
+    }
+)
+# late tier: Myrrh, Syrene

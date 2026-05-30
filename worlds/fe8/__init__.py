@@ -28,6 +28,8 @@ from .constants import (
     NUM_WEAPON_LEVELS,
     HOLY_WEAPONS,
     FILLER_ITEMS,
+    DEPLOY_EARLY_UNITS,
+    DEPLOY_MID_UNITS,
 )
 from .locations import FE8Location
 from .items import FE8Item
@@ -39,44 +41,6 @@ from .rom import FE8ProcedurePatch, write_tokens
 # the unused import warning
 _ = FE8Client
 
-_DEPLOY_EARLY_UNITS = frozenset(
-    {
-        "Seth",
-        "Franz",
-        "Gilliam",
-        "Vanessa",
-        "Moulder",
-        "Ross",
-        "Garcia",
-        "Neimi",
-        "Colm",
-        "Artur",
-        "Lute",
-        "Natasha",
-        "Joshua",
-        "Forde",
-        "Kyle",
-        "Tana",
-        "Amelia",
-    }
-)
-_DEPLOY_MID_UNITS = frozenset(
-    {
-        "Innes",
-        "Gerik",
-        "Tethys",
-        "Marisa",
-        "L'Arachel",
-        "Dozla",
-        "Saleh",
-        "Ewan",
-        "Cormag",
-        "Rennac",
-        "Duessel",
-        "Knoll",
-    }
-)
-# late tier: Myrrh, Syrene
 
 
 class FE8WebWorld(WebWorld):
@@ -382,9 +346,9 @@ class FE8World(World):
                         if "Recruited" not in name:
                             continue
                         unit = name.replace(" Recruited", "")
-                        if unit in _DEPLOY_EARLY_UNITS:
+                        if unit in DEPLOY_EARLY_UNITS:
                             self.add_location_to_region(name, None, prologue)
-                        elif unit in _DEPLOY_MID_UNITS:
+                        elif unit in DEPLOY_MID_UNITS:
                             self.add_location_to_region(name, None, route_split)
                         else:
                             self.add_location_to_region(name, None, lategame)
@@ -531,9 +495,9 @@ class FE8World(World):
                 return 1
             if item.name.startswith("Deploy "):
                 unit = item.name[len("Deploy ") :]
-                if unit in _DEPLOY_EARLY_UNITS:
+                if unit in DEPLOY_EARLY_UNITS:
                     return 1
-                if unit in _DEPLOY_MID_UNITS:
+                if unit in DEPLOY_MID_UNITS:
                     return 2
                 return 3
             return 0
