@@ -143,17 +143,17 @@ class ProgressiveSethDeployment(Toggle):
 
 class SmoothDeployments(Toggle):
     """
-    Spread deploy permits across the three chapter phases of the game.
+    Gate chapter progression on the size of your deployable army.
     Requires Enable recruit checks.
 
-    Units recruited by Chapter 7 have their deploy permits placed in sphere-1
-    locations (Before Routesplit), units from Chapter 8 through Chapter 17 in
-    sphere-2 locations (Routesplit), and the final two units (Myrrh, Syrene)
-    in sphere-3 locations (Post-routesplit).
+    Deploy permits become progression items and can be placed anywhere in the
+    multiworld. Logic expects 8 deploy permits for early units (recruited by
+    Chapter 7) before advancing past Chapter 8, and 11 deploy permits for
+    early/mid units before advancing past Chapter 15.
     """
 
     display_name = "Smooth deployments"
-    default = 0
+    default = 1
 
 
 class EnableTower(Toggle):

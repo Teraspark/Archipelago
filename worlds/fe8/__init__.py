@@ -200,16 +200,24 @@ class FE8World(World):
 
         if self.options.recruit_checks_enabled:
             progressive_seth = bool(self.options.progressive_seth_deployment)
+            # With smooth deployments, region exits and the Knoll/Myrrh recruit
+            # checks have rules counting deploy permits, so the permits must be
+            # progression for fill logic to see them.
+            deploy_classification = (
+                ItemClassification.progression
+                if self.options.smooth_deployments
+                else ItemClassification.useful
+            )
             for name, _ in items:
                 if name == "Deploy Seth":
                     if not progressive_seth:
-                        register(name, ItemClassification.useful)
+                        register(name, deploy_classification)
                 elif name == "Progressive Seth Deployment":
                     if progressive_seth:
                         for _ in range(4):
-                            register(name, ItemClassification.useful)
+                            register(name, deploy_classification)
                 elif "Deploy" in name:
-                    register(name, ItemClassification.useful)
+                    register(name, deploy_classification)
 
         # We shuffle here to ensure that level caps and weapon levels come before
         # holy weapons in `other_weapons`.
@@ -232,8 +240,9 @@ class FE8World(World):
 
         if len(progression_items) > total_locations:
             raise OptionError(
-                "Could not place all requested weapon levels and level uncaps. "
-                "Reduce the number of required Holy Weapons or disable smooth level caps."
+                "Could not place all requested weapon levels, level uncaps, "
+                "and deploy permits. Reduce the number of required Holy "
+                "Weapons or disable smooth level caps or smooth deployments."
             )
 
         for item in progression_items:
@@ -275,6 +284,35 @@ class FE8World(World):
                 return 10 + state.count("Progressive Level Cap", player) * 5 >= n
 
             return wrapped
+
+        def deployable_at_least(
+            n: int, units: frozenset[str]
+        ) -> Callable[[CollectionState], bool]:
+            player = self.player
+            progressive_seth = bool(self.options.progressive_seth_deployment)
+            permits = [f"Deploy {unit}" for unit in units if unit != "Seth"]
+
+            def wrapped(state: CollectionState) -> bool:
+                count = sum(1 for permit in permits if state.has(permit, player))
+                if "Seth" in units:
+                    if progressive_seth:
+                        count += (
+                            state.count("Progressive Seth Deployment", player) >= 4
+                        )
+                    else:
+                        count += state.has("Deploy Seth", player)
+                return count >= n
+
+            return wrapped
+
+        def combine_rules(
+            rules: list[Callable[[CollectionState], bool]]
+        ) -> Optional[Callable[[CollectionState], bool]]:
+            if not rules:
+                return None
+            if len(rules) == 1:
+                return rules[0]
+            return lambda state: all(rule(state) for rule in rules)
 
         def finalboss_rule(state: CollectionState) -> bool:
             if not level_cap_at_least(min_endgame_level_cap)(state):
@@ -358,18 +396,39 @@ class FE8World(World):
                             self.add_location_to_region(name, None, prologue)
 
             menu.connect(prologue, "Start Game")
+
+            deploy_gates = bool(smooth_deployments) and bool(
+                self.options.recruit_checks_enabled
+            )
+
+            routesplit_rules = []
+            post_routesplit_rules = []
             if smooth_level_caps:
-                prologue.add_exits(
-                    {"Routesplit": "Clear chapter 8"},
-                    {"Routesplit": level_cap_at_least(15)},
+                routesplit_rules.append(level_cap_at_least(15))
+                post_routesplit_rules.append(level_cap_at_least(25))
+            if deploy_gates:
+                # Chapter 8 has 9 deploy slots (1 forced), chapter 15 has 12
+                # (1 forced); logic expects a full roster for each.
+                routesplit_rules.append(deployable_at_least(8, DEPLOY_EARLY_UNITS))
+                post_routesplit_rules.append(
+                    deployable_at_least(11, DEPLOY_EARLY_UNITS | DEPLOY_MID_UNITS)
                 )
-                route_split.add_exits(
-                    {"Post-routesplit": "Clear chapter 15"},
-                    {"Post-routesplit": level_cap_at_least(25)},
-                )
-            else:
-                prologue.add_exits({"Routesplit": "Clear chapter 8"})
-                route_split.add_exits({"Post-routesplit": "Clear chapter 15"})
+
+            routesplit_rule = combine_rules(routesplit_rules)
+            post_routesplit_rule = combine_rules(post_routesplit_rules)
+
+            prologue.add_exits(
+                {"Routesplit": "Clear chapter 8"},
+                {"Routesplit": routesplit_rule} if routesplit_rule else None,
+            )
+            route_split.add_exits(
+                {"Post-routesplit": "Clear chapter 15"},
+                (
+                    {"Post-routesplit": post_routesplit_rule}
+                    if post_routesplit_rule
+                    else None
+                ),
+            )
 
             lategame.add_exits(
                 {"FinalBoss": "Clear chapter 20"},
@@ -483,70 +542,21 @@ class FE8World(World):
     def set_rules(self) -> None:
         if not self.options.recruit_checks_enabled:
             return
+        smooth_deployments = bool(self.options.smooth_deployments)
         for unit in ("Knoll", "Myrrh"):
             loc = self.multiworld.get_location(f"{unit} Recruited", self.player)
             deploy_name = f"Deploy {unit}"
             loc.item_rule = lambda item, n=deploy_name: not (
                 item.player == self.player and item.name == n
             )
-
-    def pre_fill(self) -> None:
-        if not self.options.recruit_checks_enabled:
-            return
-        if not self.options.smooth_deployments:
-            return
-
-        from Fill import fill_restrictive
-
-        def deploy_tier(item) -> int:
-            if item.player != self.player:
-                return 0
-            if item.name in ("Deploy Seth", "Progressive Seth Deployment"):
-                return 1
-            if item.name.startswith("Deploy "):
-                unit = item.name[len("Deploy ") :]
-                if unit in DEPLOY_EARLY_UNITS:
-                    return 1
-                if unit in DEPLOY_MID_UNITS:
-                    return 2
-                return 3
-            return 0
-
-        by_tier: dict[int, list] = {1: [], 2: [], 3: []}
-        remaining = []
-        for item in self.multiworld.itempool:
-            t = deploy_tier(item)
-            if t:
-                by_tier[t].append(item)
-            else:
-                remaining.append(item)
-        self.multiworld.itempool = remaining
-
-        all_state = self.multiworld.get_all_state(perform_sweep=False)
-
-        for tier, region_name in [
-            (1, "Before Routesplit"),
-            (2, "Routesplit"),
-            (3, "Post-routesplit"),
-        ]:
-            locs = [
-                loc
-                for loc in self.multiworld.get_region(
-                    region_name, self.player
-                ).locations
-                if not loc.item
-            ]
-            items = by_tier[tier]
-            self.random.shuffle(locs)
-            self.random.shuffle(items)
-            fill_restrictive(
-                self.multiworld,
-                all_state,
-                locs,
-                items,
-                lock=True,
-                name="FE8 Deploy Permits",
-            )
+            if smooth_deployments:
+                # These units must be deployed to be recruited. Without smooth
+                # deployments the permits aren't progression, so fill logic
+                # couldn't satisfy this rule; the item_rule above is the best
+                # we can do there.
+                loc.access_rule = lambda state, n=deploy_name: state.has(
+                    n, self.player
+                )
 
     def fill_slot_data(self) -> dict[str, Any]:
         slot_data = self.options.as_dict("goal")
