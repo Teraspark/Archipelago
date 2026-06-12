@@ -480,6 +480,16 @@ class FE8World(World):
                 campaign.add_exits({"Lagdou Ruins": "Complete Chapter 19"})
                 ruins.add_exits({"Campaign": "Complete Lagdou Ruins 10"})
 
+    def set_rules(self) -> None:
+        if not self.options.recruit_checks_enabled:
+            return
+        for unit in ("Knoll", "Myrrh"):
+            loc = self.multiworld.get_location(f"{unit} Recruited", self.player)
+            deploy_name = f"Deploy {unit}"
+            loc.item_rule = lambda item, n=deploy_name: not (
+                item.player == self.player and item.name == n
+            )
+
     def pre_fill(self) -> None:
         if not self.options.recruit_checks_enabled:
             return
