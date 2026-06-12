@@ -124,7 +124,7 @@ class EnableRecruitChecks(Toggle):
     """
 
     display_name = "Enable recruit checks"
-    default = 0
+    default = 1
 
 
 class ProgressiveSethDeployment(Toggle):
