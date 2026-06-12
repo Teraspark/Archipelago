@@ -239,14 +239,14 @@ DEPLOY_EARLY_UNITS = frozenset(
         "Lute",
         "Natasha",
         "Joshua",
-        "Forde",
-        "Kyle",
-        "Tana",
-        "Amelia",
     }
 )
 DEPLOY_MID_UNITS = frozenset(
     {
+        "Forde",
+        "Kyle",
+        "Tana",
+        "Amelia",
         "Innes",
         "Gerik",
         "Tethys",
